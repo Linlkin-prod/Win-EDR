@@ -30,14 +30,14 @@ Experimental Windows EDR agent proof of concept (PoC). Goal: run as a Windows Se
 ## Roadmap (prochaines étapes)
 - Service Windows Rust
 - Process context & enrichment
-- Collecte ETW minimale
-- State management local
-- Module réseau / backend
-- Pipeline détection
-- Détections comportementales basiques
-- Actions EDR
-- Observabilité & self-health
-- Hardening progressif
+- Minimal ETW Collect
+- Local State management 
+- Network Module and Backend
+- Detection Pipeline
+- Basic behavioural detections
+- EDR Actions
+- Observability & self-health
+- Progressive Hardening
 
 ## Contributing
 This is early-stage research code. Please open issues or PRs with small, reviewable changes.
