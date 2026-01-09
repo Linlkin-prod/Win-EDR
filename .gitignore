@@ -1,0 +1,4 @@
+edr-agent/target/
+edr-agent/Cargo.lock
+edr-agent/.idea/
+edr-agent/.vscode/
