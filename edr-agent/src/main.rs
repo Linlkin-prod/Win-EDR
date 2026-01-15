@@ -1,6 +1,8 @@
 mod service;
 mod logging;
 pub mod worker;
+pub mod model;
+mod process;
 
 use windows::core::PWSTR;
 use windows::Win32::System::Services::*;
