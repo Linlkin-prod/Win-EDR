@@ -3,6 +3,7 @@ mod logging;
 pub mod worker;
 pub mod model;
 mod process;
+mod etw;
 
 use windows::core::PWSTR;
 use windows::Win32::System::Services::*;

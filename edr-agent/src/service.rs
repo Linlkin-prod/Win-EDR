@@ -1,12 +1,14 @@
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStrExt;
 use std::sync::{Mutex, OnceLock, mpsc};
-use std::thread;
+use std::{thread};
 
 use windows::Win32::System::Services::*;
 use windows::core::PCWSTR;
 
 use crate::worker;
+use crate::etw;
+use crate::model;
 
 const SERVICE_NAME: &str = "EDRAgent";
 
@@ -27,13 +29,30 @@ pub fn run() -> windows::core::Result<()> {
         let (stop_tx, stop_rx) = mpsc::channel();
         STOP_SIGNAL.set(Mutex::new(stop_tx)).unwrap();
 
+
+        let (tx, rx) = mpsc::channel();
+        let event_pipeline = model::EventPipeline {
+            tx: tx,
+            rx: rx,
+        };
+
         let worker_handle = thread::spawn(move || {
-            worker::run(stop_rx);
+            worker::run(event_pipeline.rx);
         });
+
+        let baseline_handle = thread::spawn({
+            let tx = event_pipeline.tx.clone();
+            move || {
+                etw::baseline::run_baseline(tx);
+            }
+        });
+
+        let etw_process_handle = etw::process::run_etw_listener(event_pipeline.tx.clone())
+            .expect("Failed to start ETW process listener");
 
         set_service_status(status_handle, SERVICE_RUNNING)?;
 
-        // 🔒 Block here until STOP is requested
+        // Block here until STOP is requested
         worker_handle.join().ok();
 
         set_service_status(status_handle, SERVICE_STOPPED)?;
@@ -51,7 +70,7 @@ extern "system" fn service_ctrl_handler(ctrl: u32) {
                 let _ = lock.lock().unwrap().send(());
             }
         }
-        _ => {}
+        _ => {tracing::warn!("Unknown service control request: {}", ctrl);}
     }
 }
 
