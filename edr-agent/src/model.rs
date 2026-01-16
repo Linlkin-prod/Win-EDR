@@ -40,6 +40,14 @@ pub struct ProcessContext {
     pub user_sid: Option<String>,
     pub integrity_level: Option<IntegrityLevel>,
     pub session_id: Option<u32>,
+    pub status: Option<ProcessStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProcessStatus {
+    Running,
+    Terminated,
+    Unknown,
 }
 
 #[derive(Debug, Clone)]

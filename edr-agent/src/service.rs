@@ -37,7 +37,7 @@ pub fn run() -> windows::core::Result<()> {
         };
 
         let worker_handle = thread::spawn(move || {
-            worker::run(event_pipeline.rx);
+            worker::run(event_pipeline.rx, stop_rx);
         });
 
         let baseline_handle = thread::spawn({

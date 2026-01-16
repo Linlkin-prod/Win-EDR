@@ -1,5 +1,5 @@
 use crate::process::{self, cache::ProcessCache, enrich};
-use crate::model::{ProcessContext, Event, EventData, normalize_path, EventType, HostId, EventPipeline};
+use crate::model::{ProcessContext, Event, EventData, normalize_path, EventType, HostId, ProcessStatus};
 use std::sync::mpsc;
 
 
@@ -19,6 +19,7 @@ pub fn run_baseline(_tx: mpsc::Sender<Event>) {
             user_sid: None,
             integrity_level: None,
             session_id: None,
+            status: Some(ProcessStatus::Running),
         };
 
         let event = Event {

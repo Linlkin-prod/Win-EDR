@@ -1,34 +1,35 @@
-use std::sync::mpsc::{self, Receiver};
-use std::thread;
-use std::time::Duration;
-use crate::process::{self, cache::ProcessCache, enrich};
-use crate::model::{ProcessContext, Event, EventData, normalize_path, EventType, HostId, EventPipeline};
-use std::time::SystemTime;
-use crate::etw;
+use std::sync::mpsc::Receiver;
+use crate::model::{Event, EventType};
+use crate::process::cache::ProcessCache;
 
-
-
-pub fn run(_rx: Receiver<Event>) {
-
+pub fn run(event_rx: Receiver<Event>, stop_rx: Receiver<()>) {
     let mut cache = ProcessCache::new();
 
-
     loop {
-        if _rx.try_recv().is_ok() {
+        if let Ok(_) = stop_rx.try_recv() {
             break;
         }
-    }
 
-    if let Ok(event) = _rx.recv() {
-        tracing::info!("ETW Process Event: PID={}, PPID={}", event.process.pid, event.process.ppid);
-
-        //enrich and process the event as needed
-
-        if event.event_type == EventType::ProcessStart {
-            let ctx = event.process.clone();
-            cache.insert(event.process.pid, ctx);
+        match event_rx.recv() {
+            Ok(event) => {
+                handle_event(event, &mut cache);
+            }
+            Err(_) => {
+                break;
+            }
         }
     }
+}
 
-
+fn handle_event(event: Event, cache: &mut ProcessCache) {
+    match event.event_type {
+        EventType::ProcessStart => {
+            cache.insert(event.process.pid, event.process.clone());
+        }
+        EventType::ProcessStop => {
+            
+        }
+        EventType::ImageLoad => {
+        }
+    }
 }
