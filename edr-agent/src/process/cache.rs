@@ -16,6 +16,10 @@ impl ProcessCache {
         self.cache.insert(pid, context);
     }
 
+    pub fn remove(&mut self, pid: &u32) {
+        self.cache.remove(pid);
+    }
+
     #[allow(dead_code)]
     pub fn get(&self, pid: &u32) -> Option<&ProcessContext> {
         self.cache.get(pid)

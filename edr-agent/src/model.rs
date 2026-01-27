@@ -1,14 +1,20 @@
+use std::sync::mpsc;
+
+pub struct EventPipeline {
+    pub tx: mpsc::Sender<Event>,
+    pub rx: mpsc::Receiver<Event>,
+}
 
 #[derive(Debug, Clone)]
 pub struct Event {
     pub timestamp: u64,
     pub event_type: EventType,
-    pub host_id: HostId,
+    pub host_id: Option<HostId>,
     pub process: ProcessContext,
     pub data: EventData,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EventType {
     ProcessStart,
     ProcessStop,
@@ -24,16 +30,24 @@ pub struct HostId {
 #[derive(Debug, Clone)]
 pub struct ProcessContext {
     pub pid: u32,
-    pub ppid: u32,
+    pub ppid: Option<u32>,
 
-    pub image: String,           //winword.exe
-    pub image_path: String,      // normalized full path
-    pub image_path_raw: String,  // raw NT path
+    pub image: Option<String>,           //winword.exe
+    pub image_path: Option<String>,      // normalized full path
+    pub image_path_raw: Option<String>,  // raw NT path
     pub cmdline: Option<String>,
 
     pub user_sid: Option<String>,
     pub integrity_level: Option<IntegrityLevel>,
     pub session_id: Option<u32>,
+    pub status: Option<ProcessStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProcessStatus {
+    Running,
+    Terminated,
+    Unknown,
 }
 
 #[derive(Debug, Clone)]
