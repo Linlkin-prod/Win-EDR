@@ -47,7 +47,7 @@ pub fn run() -> windows::core::Result<()> {
             }
         });
 
-        let etw_process_handle = etw::process::run_etw_listener(event_pipeline.tx.clone())
+        let etw_process_handle = etw::process::run(event_pipeline.tx.clone())
             .expect("Failed to start ETW process listener");
 
         set_service_status(status_handle, SERVICE_RUNNING)?;
