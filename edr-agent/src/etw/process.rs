@@ -1,22 +1,23 @@
 use windows::Win32::System::Diagnostics::Etw::{
-    StartTraceW, EnableTraceEx2, EVENT_TRACE_PROPERTIES, EVENT_TRACE_FLAG_PROCESS,
-    TRACE_LEVEL_INFORMATION, CONTROLTRACE_HANDLE,
+    CONTROLTRACE_HANDLE, EVENT_RECORD, EVENT_TRACE_FLAG_PROCESS, EVENT_TRACE_PROPERTIES,
+    EVENT_TRACE_LOGFILEW, EnableTraceEx2, OpenTraceW, ProcessTrace,
+    PROCESS_TRACE_MODE_EVENT_RECORD, PROCESS_TRACE_MODE_REAL_TIME, StartTraceW,
+    TRACE_LEVEL_INFORMATION, PROCESSTRACE_HANDLE,
 };
+
 use windows::core::GUID;
 use windows::core::PWSTR;
-use std::sync::mpsc::Sender;
+use std::sync::{mpsc::Sender, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
-use crate::model::{Event, EventType, EventData, ProcessContext, HostId, normalize_path, ProcessStatus};
+use std::thread;
+use crate::model::{Event, EventType, EventData, ProcessContext, ProcessStatus};
 
-#[repr(C)]
-pub struct ProcessEvent {
-    pub pid: u32,
-    pub ppid: u32,
-}
+static ETW_TX: OnceLock<Sender<Event>> = OnceLock::new();
 
 
 pub fn run(tx: Sender<Event>) -> windows::core::Result<()> {
     unsafe {
+        let _ = ETW_TX.set(tx);
         let mut properties = EVENT_TRACE_PROPERTIES::default();
         properties.EnableFlags = EVENT_TRACE_FLAG_PROCESS;
 
@@ -55,43 +56,86 @@ pub fn run(tx: Sender<Event>) -> windows::core::Result<()> {
             return Err(status.into());
         }
 
-        
+        let trace_thread_name: Vec<u16> = "EDRProcessSession\0".encode_utf16().collect();
+        thread::spawn(move || {
+            unsafe {
+                let mut logfile = EVENT_TRACE_LOGFILEW::default();
+                logfile.LoggerName = PWSTR(trace_thread_name.as_ptr() as *mut u16);
+                logfile.Anonymous1.ProcessTraceMode =
+                    PROCESS_TRACE_MODE_REAL_TIME | PROCESS_TRACE_MODE_EVENT_RECORD;
+                logfile.Anonymous2.EventRecordCallback = Some(event_callback);
+
+                let trace_handle: PROCESSTRACE_HANDLE = OpenTraceW(&mut logfile);
+
+                if trace_handle.Value == 0 || trace_handle.Value == u64::MAX {
+                    tracing::error!("OpenTraceW failed for EDRProcessSession");
+                    return;
+                }
+
+                let handles = [trace_handle];
+                let _ = ProcessTrace(&handles, None, None);
+            }
+        });
 
         Ok(())
     }
 }
 
-fn on_process_event(ev: ProcessEvent, tx: &Sender<Event>) {
-    let ctx = ProcessContext {
-        pid: ev.pid,
-        ppid: ev.ppid,
-        image: Some(String::new()),          
-        image_path_raw: Some(String::new()), 
-        image_path: Some(String::new()),
-        cmdline: None,
-        user_sid: None,
-        integrity_level: None,
-        session_id: None,
-        status: Some(ProcessStatus::Running),
+
+
+
+
+unsafe extern "system" fn event_callback(record : *mut EVENT_RECORD) {
+    let header = &(*record).EventHeader;
+    let opcode = header.EventDescriptor.Opcode;
+    let event_type = match opcode {
+        1 | 3 => EventType::ProcessStart,
+        2 | 4 => EventType::ProcessStop,
+        _ => return,
     };
+
+    let pid = header.ProcessId;
+
+    let status = match event_type {
+        EventType::ProcessStart => Some(ProcessStatus::Running),
+        EventType::ProcessStop => Some(ProcessStatus::Terminated),
+        _ => None,
+    };
+
+    let data = match event_type {
+        EventType::ProcessStart => EventData::ProcessStart {
+            parent_image: String::new(),
+            parent_cmdline: None,
+        },
+        EventType::ProcessStop => EventData::ProcessStop { exit_code: 0 },
+        _ => return,
+    };
+
 
     let event = Event {
         timestamp: SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs(),
-        event_type: EventType::ProcessStart, // ou ProcessStop selon opcode
-        host_id: HostId {
-            agent_id: "agent-1234".to_string(),
-            hostname: "host.local".to_string(),
+        event_type,
+        host_id: None,
+        process: ProcessContext {
+            pid,
+            ppid: None,
+            image: None,          
+            image_path_raw: None, 
+            image_path: None,
+            cmdline: None,
+            user_sid: None,
+            integrity_level: None,
+            session_id: None,
+            status,
         },
-        process: ctx,
-        data: EventData::ProcessStart {
-            parent_image: String::new(),
-            parent_cmdline: None,
-        },
+        data,
     };
 
-    let _ = tx.send(event);
-}
+    if let Some(tx) = ETW_TX.get() {
+        let _ = tx.send(event);
+    }
 
+}

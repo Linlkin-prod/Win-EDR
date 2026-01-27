@@ -9,7 +9,7 @@ pub struct EventPipeline {
 pub struct Event {
     pub timestamp: u64,
     pub event_type: EventType,
-    pub host_id: HostId,
+    pub host_id: Option<HostId>,
     pub process: ProcessContext,
     pub data: EventData,
 }
@@ -30,7 +30,7 @@ pub struct HostId {
 #[derive(Debug, Clone)]
 pub struct ProcessContext {
     pub pid: u32,
-    pub ppid: u32,
+    pub ppid: Option<u32>,
 
     pub image: Option<String>,           //winword.exe
     pub image_path: Option<String>,      // normalized full path
