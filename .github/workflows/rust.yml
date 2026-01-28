@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install mingw
-        run: apt-get update && apt-get install -y --no-install-recommends mingw-w64 && rm -rf /var/lib/apt/lists/*
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mingw-w64 && sudo rm -rf /var/lib/apt/lists/*
       - name: Install Rust target
         run: rustup target add x86_64-pc-windows-gnu
       - name: Build
